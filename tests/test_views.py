@@ -230,6 +230,41 @@ class TestContentHashCache:
         assert len(files) == 1
 
 
+    def test_a_concurrent_duplicate_is_served_from_the_winner(
+        self, client, db, monkeypatch, settings
+    ):
+        """Two requests with the same bytes both pass the hash lookup; the
+        second to save must get the first one's row, not an IntegrityError."""
+        from pathlib import Path
+
+        from classifier import service
+
+        def analyse_while_another_request_saves(path, **kwargs):
+            Analysis.objects.create(
+                original_name="winner.wav",
+                sha256=service.content_hash(path),
+                size_bytes=1,
+                duration_seconds=30.0,
+                top_genre="rock",
+                top_probability=0.62,
+                band="confident",
+                result=dict(ANALYSIS),
+            )
+            return dict(ANALYSIS)
+
+        monkeypatch.setattr(
+            services_module.service, "analyse_file", analyse_while_another_request_saves
+        )
+        response = post_file(client, wav_upload())
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["cached"] is True
+        assert body["name"] == "winner.wav"
+        assert Analysis.objects.count() == 1
+        assert not [p for p in Path(settings.MEDIA_ROOT).rglob("*") if p.is_file()]
+
+
 class TestHistoryIsBounded:
     def test_history_is_pruned_to_the_limit(self, client, db, stub_analysis, settings):
         settings.HISTORY_LIMIT = 3

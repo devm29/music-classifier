@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 from django.conf import settings
 from django.core.files.uploadedfile import UploadedFile
-from django.db import transaction
+from django.db import IntegrityError, transaction
 
 from classifier import service
 from classifier.audio import AudioError
@@ -73,9 +73,19 @@ def classify_upload(upload: UploadedFile) -> ClassifyResult:
     row.elapsed_ms = result["elapsed_ms"]
     row.result = result
 
-    with transaction.atomic():
-        row.save()
-        prune_history()
+    try:
+        with transaction.atomic():
+            row.save()
+            prune_history()
+    except IntegrityError:
+        # Two uploads of the same bytes raced past the hash lookup above; the
+        # other request stored its row first. Its analysis is identical, so
+        # serve that one instead of turning the unique constraint into a 500.
+        row.file.delete(save=False)
+        existing = Analysis.objects.filter(sha256=digest).first()
+        if existing is None:
+            raise
+        return ClassifyResult(analysis=existing, cached=True)
     return ClassifyResult(analysis=row, cached=False)
 
 
