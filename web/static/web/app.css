@@ -1,61 +1,75 @@
 /*
- * Colours are the reference data-viz palette: a single blue sequential ramp
- * for magnitude and the reserved status tokens for the confidence verdict.
- * No categorical hues are used anywhere — there are ten genres and the
- * categorical palette tops out at eight, so identity is carried by text and
- * magnitude by the one ramp. Dark mode is the palette's own dark steps, not a
- * flipped copy of the light ones.
+ * Liner-notes palette: warm paper, near-black ink, and one rust ramp for
+ * magnitude, the colour of an old record sleeve rather than a dashboard.
+ * No categorical hues are used anywhere: there are ten genres, more than a
+ * categorical palette can keep apart, so identity is carried by text and
+ * magnitude by the single ramp. Status colours are reserved for the verdict.
+ * Dark mode is its own set of steps, not a flipped copy of the light ones.
+ *
+ * Type: a book serif for headings and the verdict, the platform sans for
+ * body text, monospace for every number. All system stacks, so the page
+ * makes no third-party requests ("nothing leaves this machine" is true).
  */
 
 :root {
   color-scheme: light;
 
-  --surface-0: #f4f3f0;
-  --surface-1: #fcfcfb;
-  --surface-2: #eeede9;
-  --hairline: #e1e0da;
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", "URW Palladio L", Georgia, serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", "Helvetica Neue", "Noto Sans", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
 
-  --ink-1: #0b0b0b;
-  --ink-2: #52514e;
-  --ink-3: #78776f;
+  --surface-0: #f3eee5;
+  --surface-1: #fffcf7;
+  --surface-2: #efe8dc;
+  --hairline: #ddd3c3;
 
-  /* Sequential blue, low -> high magnitude (steps 250/350/450/550/650). */
-  --seq-1: #86b6ef;
-  --seq-2: #5598e7;
-  --seq-3: #2a78d6;
-  --seq-4: #1c5cab;
-  --seq-5: #104281;
-  --series-1: #2a78d6;
-  --series-1-soft: #cde2fb;
+  --ink-1: #1d1914;
+  --ink-2: #4c453b;
+  --ink-3: #685f53;
 
-  --good: #0ca30c;
-  --warning: #fab219;
-  --critical: #d03b3b;
+  /* Sequential rust, low -> high magnitude. */
+  --seq-1: #f0c79a;
+  --seq-2: #e19f62;
+  --seq-3: #c4732f;
+  --seq-4: #97531c;
+  --seq-5: #66350f;
+  --series-1: #a9561b;
+  --series-1-soft: #f7e3cf;
+  --focus: #1f5f8b;
+
+  --good: #2e7d32;
+  --warning: #c98a00;
+  --critical: #b3261e;
 
   --radius: 10px;
-  --shadow: 0 1px 2px rgba(11, 11, 11, .06), 0 8px 24px rgba(11, 11, 11, .05);
+  --shadow: 0 1px 2px rgba(29, 25, 20, .06), 0 8px 24px rgba(29, 25, 20, .05);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme="light"])) {
     color-scheme: dark;
 
-    --surface-0: #121211;
-    --surface-1: #1a1a19;
-    --surface-2: #232321;
-    --hairline: #33332f;
+    --surface-0: #15120e;
+    --surface-1: #1e1a15;
+    --surface-2: #29241d;
+    --hairline: #3a332a;
 
-    --ink-1: #ffffff;
-    --ink-2: #c3c2b7;
-    --ink-3: #91908a;
+    --ink-1: #f6f0e6;
+    --ink-2: #cfc5b5;
+    --ink-3: #a59a89;
 
-    --seq-1: #184f95;
-    --seq-2: #256abf;
-    --seq-3: #3987e5;
-    --seq-4: #6da7ec;
-    --seq-5: #9ec5f4;
-    --series-1: #3987e5;
-    --series-1-soft: #1c3b5e;
+    --seq-1: #5c3112;
+    --seq-2: #8a4b1b;
+    --seq-3: #bf6d2c;
+    --seq-4: #e09658;
+    --seq-5: #f4c592;
+    --series-1: #e48c46;
+    --series-1-soft: #3b2715;
+    --focus: #8cc4ef;
+
+    --good: #6cc070;
+    --warning: #e6b33d;
+    --critical: #f0776d;
 
     --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .3);
   }
@@ -67,11 +81,17 @@ body {
   margin: 0;
   background: var(--surface-0);
   color: var(--ink-1);
-  font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font: 15px/1.55 var(--font-body);
   -webkit-font-smoothing: antialiased;
 }
 
 a { color: var(--series-1); }
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
 
 .masthead {
   border-bottom: 1px solid var(--hairline);
@@ -89,15 +109,18 @@ a { color: var(--series-1); }
 
 .wordmark {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 10px;
-  font-size: 17px;
-  font-weight: 640;
+  gap: 2px 10px;
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 700;
   letter-spacing: -.01em;
   margin: 0;
 }
 
 .wordmark small {
+  font-family: var(--font-body);
   font-size: 12px;
   font-weight: 450;
   color: var(--ink-3);
@@ -112,10 +135,12 @@ a { color: var(--series-1); }
 }
 
 .masthead nav a { color: var(--ink-2); text-decoration: none; }
-.masthead nav a:hover { color: var(--series-1); }
+.masthead nav a:hover,
+.masthead nav a[aria-current="page"] { color: var(--series-1); }
+.masthead nav a[aria-current="page"] { text-decoration: underline; text-underline-offset: 4px; }
 
 .model-chip {
-  font: 500 11.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 500 11.5px/1 var(--font-mono);
   color: var(--ink-2);
   background: var(--surface-2);
   border: 1px solid var(--hairline);
@@ -135,8 +160,17 @@ a { color: var(--series-1); }
 }
 
 @media (max-width: 900px) {
-  .page { grid-template-columns: minmax(0, 1fr); padding: 20px; }
-  .masthead-inner { padding: 16px 20px; flex-wrap: wrap; }
+  .page { grid-template-columns: minmax(0, 1fr); padding: 20px 16px; }
+  .masthead-inner { padding: 14px 16px; flex-wrap: wrap; gap: 10px 16px; }
+  .masthead nav { margin-left: 0; width: 100%; }
+}
+
+@media (max-width: 480px) {
+  .model-chip { white-space: normal; line-height: 1.4; }
+  .card { padding: 18px 16px; }
+  .verdict-genre { font-size: 36px; }
+  .bar-row { grid-template-columns: 64px minmax(0, 1fr) 40px; gap: 8px; }
+  .nb-row { grid-template-columns: 96px minmax(0, 1fr) 44px; gap: 8px; }
 }
 
 .card {
@@ -183,46 +217,17 @@ a { color: var(--series-1); }
 }
 
 .dropzone[hidden] { display: none; }
+.dropzone.is-busy { cursor: progress; opacity: .7; }
 
 .dropzone-title { font-size: 16px; font-weight: 600; margin: 0 0 6px; }
 .dropzone-hint { font-size: 12.5px; color: var(--ink-3); margin: 0; }
-
-.btn {
-  appearance: none;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: var(--series-1);
-  color: #fff;
-  font: 600 13.5px/1 inherit;
-  padding: 10px 16px;
-  cursor: pointer;
-}
-
-.btn:hover { filter: brightness(1.06); }
-.btn:disabled { opacity: .55; cursor: default; }
-
-.btn-quiet {
-  background: transparent;
-  color: var(--ink-2);
-  border-color: var(--hairline);
-}
 
 .btn-link {
   appearance: none; background: none; border: 0; padding: 0;
   color: var(--ink-3); font: inherit; font-size: 12px; cursor: pointer;
 }
-.btn-link:hover { color: var(--critical); }
-
-.sample-row {
-  margin-top: 14px;
-  font-size: 12.5px;
-  color: var(--ink-3);
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-}
+.btn-link:hover { color: var(--series-1); text-decoration: underline; }
+.btn-link.is-danger:hover { color: var(--critical); }
 
 /* ---------- status ---------- */
 
@@ -253,7 +258,7 @@ a { color: var(--series-1); }
 
 .progress[hidden] { display: none; }
 
-.progress span {
+.progress .progress-bar {
   display: block;
   height: 100%;
   width: 35%;
@@ -281,7 +286,8 @@ a { color: var(--series-1); }
 .verdict-figure { min-width: 0; }
 
 .verdict-genre {
-  font-size: 40px;
+  font-family: var(--font-display);
+  font-size: 44px;
   font-weight: 680;
   letter-spacing: -.025em;
   line-height: 1.05;
@@ -290,7 +296,7 @@ a { color: var(--series-1); }
 }
 
 .verdict-prob {
-  font: 500 14px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 500 14px/1 var(--font-mono);
   color: var(--ink-2);
   margin: 8px 0 0;
 }
@@ -327,7 +333,7 @@ a { color: var(--series-1); }
   flex-wrap: wrap;
   gap: 8px 18px;
   margin-top: 16px;
-  font: 500 11.5px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 500 11.5px/1.4 var(--font-mono);
   color: var(--ink-3);
 }
 
@@ -379,7 +385,7 @@ a { color: var(--series-1); }
 }
 
 .bar-value {
-  font: 500 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 500 12px/1 var(--font-mono);
   color: var(--ink-2);
   text-align: right;
 }
@@ -417,7 +423,7 @@ a { color: var(--series-1); }
 .tl-axis {
   display: flex;
   justify-content: space-between;
-  font: 500 10.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 500 10.5px/1 var(--font-mono);
   color: var(--ink-3);
   margin-top: 8px;
   padding-top: 8px;
@@ -429,7 +435,7 @@ a { color: var(--series-1); }
   align-items: center;
   gap: 8px;
   margin-top: 14px;
-  font: 500 10.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 500 10.5px/1 var(--font-mono);
   color: var(--ink-3);
 }
 
@@ -449,12 +455,10 @@ a { color: var(--series-1); }
 }
 
 .nb-track {
-  font: 500 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 500 12px/1 var(--font-mono);
   color: var(--ink-1);
   white-space: nowrap;
 }
-
-.nb-track em { font-style: normal; color: var(--ink-3); }
 
 /* Spans, so block display is what gives them a height at all. */
 .nb-track-bar { display: block; height: 8px; background: var(--surface-2); border-radius: 0 4px 4px 0; }
@@ -462,7 +466,7 @@ a { color: var(--series-1); }
 .nb-fill { display: block; height: 100%; min-width: 2px; border-radius: 0 4px 4px 0; background: var(--series-1); }
 
 .nb-value {
-  font: 500 11.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 500 11.5px/1 var(--font-mono);
   color: var(--ink-3);
   text-align: right;
 }
@@ -491,7 +495,7 @@ a { color: var(--series-1); }
 }
 
 .h-genre {
-  font: 500 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 500 12px/1 var(--font-mono);
   color: var(--ink-2);
   text-transform: capitalize;
   white-space: nowrap;
@@ -517,14 +521,29 @@ a { color: var(--series-1); }
 }
 
 .prose { max-width: 66ch; }
-.prose h3 { font-size: 14px; margin: 24px 0 6px; }
+.prose h3 { font-family: var(--font-display); font-size: 18px; margin: 26px 0 6px; }
 .prose p, .prose li { font-size: 13.5px; color: var(--ink-2); }
 .prose code {
-  font: 500 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 500 12px/1 var(--font-mono);
   background: var(--surface-2);
   padding: 2px 5px;
   border-radius: 4px;
 }
+
+.skip-link {
+  position: absolute;
+  left: 16px;
+  top: -48px;
+  padding: 8px 12px;
+  background: var(--surface-1);
+  color: var(--ink-1);
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  z-index: 10;
+}
+.skip-link:focus { top: 12px; }
+
+#result:focus { outline: none; }
 
 .visually-hidden {
   position: absolute; width: 1px; height: 1px; overflow: hidden;
