@@ -1,0 +1,34 @@
+# Tooling configuration only. This project is an application, not a library:
+# it is not packaged or published, so there is no build backend here.
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["project_venv", "web/migrations", "staticfiles"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "I",    # import sorting
+    "UP",   # pyupgrade
+    "B",    # bugbear
+    "C4",   # comprehensions
+    "DJ",   # Django-specific
+    "SIM",  # simplifications
+    "RUF",
+]
+ignore = [
+    # `raise ... from err` inside an `except` that is deliberately translating
+    # a library error into a domain one; the chain is set explicitly where it
+    # carries information and suppressed where it would only add noise.
+    "B904",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests name the thing under test in the assertion, and a few deliberately
+# construct broken inputs that would otherwise trip bugbear.
+"tests/*" = ["B011", "B017", "E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["classifier", "config", "web"]
