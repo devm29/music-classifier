@@ -17,6 +17,7 @@
   var errorText = document.getElementById("error-text");
   var result = document.getElementById("result");
   var historyList = document.getElementById("history");
+  var historyLimit = Number(historyList.dataset.limit) || 20;
 
   var SEQ_STEPS = 5;
 
@@ -44,6 +45,12 @@
   function showError(message) {
     errorText.textContent = message;
     errorBox.hidden = false;
+  }
+
+  function setBusy(busy) {
+    progress.hidden = !busy;
+    dropzone.setAttribute("aria-busy", busy ? "true" : "false");
+    dropzone.classList.toggle("is-busy", busy);
   }
 
   function clearError() {
@@ -93,6 +100,7 @@
 
     segments.forEach(function (segment) {
       var cell = element("div", "tl-seg");
+      cell.setAttribute("role", "listitem");
       var bar = element("div", "tl-bar");
       bar.style.background = seqVar(segment.probability);
       cell.appendChild(bar);
@@ -101,6 +109,7 @@
         clock(segment.start) + "–" + clock(segment.end) + "  " +
         segment.genre + " " + percent(segment.probability) +
         (segment.runner_up ? "  (then " + segment.runner_up + ")" : "");
+      cell.setAttribute("aria-label", cell.title);
       host.appendChild(cell);
     });
     document.getElementById("tl-end").textContent = clock(duration);
@@ -159,6 +168,8 @@
     renderNeighbours(data.neighbours || []);
 
     result.hidden = false;
+    result.focus({ preventScroll: true });
+    result.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   function prependHistory(data) {
@@ -186,8 +197,16 @@
     sub.appendChild(bar);
     sub.appendChild(element("span", "nb-value", data.verdict.probability.toFixed(2)));
 
-    var remove = element("button", "btn-link", "remove");
+    var show = element("button", "btn-link", "show");
+    show.type = "button";
+    show.dataset.show = data.id;
+    show.setAttribute("aria-label", "Show the analysis of " + data.name);
+    sub.appendChild(show);
+
+    var remove = element("button", "btn-link is-danger", "remove");
+    remove.type = "button";
     remove.dataset.delete = data.id;
+    remove.setAttribute("aria-label", "Remove " + data.name + " from history");
     sub.appendChild(remove);
     item.appendChild(sub);
 
@@ -196,17 +215,33 @@
       player.controls = true;
       player.preload = "none";
       player.src = data.audio_url;
+      player.setAttribute("aria-label", "Play " + data.name);
       item.appendChild(player);
     }
 
     historyList.prepend(item);
-    while (historyList.children.length > 20) historyList.lastElementChild.remove();
+    while (historyList.children.length > historyLimit) historyList.lastElementChild.remove();
+  }
+
+  /* A proxy or the server's own error page can answer with HTML (a 413 for
+   * an oversized body, a 502 while a worker restarts). Report the status
+   * rather than a JSON parse error about an unexpected "<". */
+  function readJson(response) {
+    return response.text().then(function (text) {
+      var data = null;
+      try { data = JSON.parse(text); } catch (ignored) { /* not JSON */ }
+      if (!response.ok || data === null) {
+        throw new Error((data && data.error) ||
+          "The server answered " + response.status + " " + response.statusText + ".");
+      }
+      return data;
+    });
   }
 
   function upload(file) {
     if (!file) return;
     clearError();
-    progress.hidden = false;
+    setBusy(true);
     dropzone.classList.remove("is-over");
 
     var body = new FormData();
@@ -217,12 +252,7 @@
       body: body,
       headers: { "X-CSRFToken": csrfToken() }
     })
-      .then(function (response) {
-        return response.json().then(function (data) {
-          if (!response.ok) throw new Error(data.error || "classification failed");
-          return data;
-        });
-      })
+      .then(readJson)
       .then(function (data) {
         renderResult(data);
         prependHistory(data);
@@ -231,16 +261,19 @@
         showError(err.message);
       })
       .finally(function () {
-        progress.hidden = true;
+        setBusy(false);
         input.value = "";
       });
   }
 
-  dropzone.addEventListener("click", function () { input.click(); });
+  dropzone.addEventListener("click", function () {
+    if (dropzone.classList.contains("is-busy")) return;
+    input.click();
+  });
   dropzone.addEventListener("keydown", function (event) {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      input.click();
+      if (!dropzone.classList.contains("is-busy")) input.click();
     }
   });
 
@@ -265,14 +298,29 @@
   input.addEventListener("change", function () { upload(input.files[0]); });
   form.addEventListener("submit", function (event) { event.preventDefault(); });
 
+  function showStored(id) {
+    clearError();
+    fetch("/api/analyses/" + id + "/")
+      .then(readJson)
+      .then(renderResult)
+      .catch(function (err) {
+        showError("Could not load that analysis: " + err.message);
+      });
+  }
+
   historyList.addEventListener("click", function (event) {
+    var shown = event.target.closest("[data-show]");
+    if (shown) {
+      showStored(shown.dataset.show);
+      return;
+    }
     var button = event.target.closest("[data-delete]");
     if (!button) return;
     var id = button.dataset.delete;
     fetch("/api/analyses/" + id + "/", {
       method: "DELETE",
       headers: { "X-CSRFToken": csrfToken() }
-    }).then(function () {
+    }).then(readJson).then(function () {
       var row = historyList.querySelector('[data-id="' + id + '"]');
       if (row) row.remove();
       if (!historyList.children.length) {
@@ -280,6 +328,8 @@
         placeholder.appendChild(element("p", "empty", "Nothing classified yet. Upload a track to start."));
         historyList.appendChild(placeholder);
       }
+    }).catch(function (err) {
+      showError("Could not remove that analysis: " + err.message);
     });
   });
 })();

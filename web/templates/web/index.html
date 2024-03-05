@@ -11,7 +11,7 @@
       scored. Nothing leaves this machine.
     </p>
 
-    <div class="banner is-error" id="error" hidden>
+    <div class="banner is-error" id="error" role="alert" hidden>
       <span class="icon" aria-hidden="true">!</span><span id="error-text"></span>
     </div>
 
@@ -30,12 +30,15 @@
         <p class="dropzone-hint">or click to choose &middot; {{ accepted }} &middot; up to {{ max_mb }}&nbsp;MB</p>
         <input type="file" id="file-input" name="file" accept="audio/*" class="visually-hidden">
       </div>
-      <div class="progress" id="progress" hidden><span></span></div>
+      <div class="progress" id="progress" role="status" hidden>
+        <span class="progress-bar" aria-hidden="true"></span>
+        <span class="visually-hidden">Analysing the upload&hellip;</span>
+      </div>
     </form>
   </section>
 
-  <section class="card" id="result" hidden>
-    <h2>Result</h2>
+  <section class="card" id="result" tabindex="-1" aria-labelledby="result-heading" hidden>
+    <h2 id="result-heading">Result</h2>
 
     <div class="verdict">
       <div class="verdict-figure">
@@ -59,7 +62,7 @@
     <div class="chart" id="timeline-block">
       <p class="chart-title">Genre across the clip</p>
       <p class="chart-note">Ten-second windows, five-second hop. Shade is the window&rsquo;s confidence; the label under each is its top genre.</p>
-      <div class="timeline" id="timeline"></div>
+      <div class="timeline" id="timeline" role="list"></div>
       <div class="tl-axis"><span>0:00</span><span id="tl-end"></span></div>
       <div class="scale-legend">
         <span>less certain</span>
@@ -78,11 +81,11 @@
   </section>
 </div>
 
-<aside>
+<aside aria-labelledby="recent-heading">
   <section class="card">
-    <h2>Recent</h2>
+    <h2 id="recent-heading">Recent</h2>
     <p class="subhead">The last {{ history_limit }} analyses are kept; older ones are pruned with their audio. A repeat upload is served from the content-hash cache.</p>
-    <ul class="history" id="history">
+    <ul class="history" id="history" data-limit="{{ history_limit }}">
       {% for row in recent %}
         <li data-id="{{ row.pk }}">
           <div class="h-head">
@@ -92,9 +95,10 @@
           <div class="h-sub">
             <span class="h-bar"><i style="width: {% widthratio row.top_probability 1 100 %}%"></i></span>
             <span class="nb-value">{{ row.top_probability|floatformat:2 }}</span>
-            <button class="btn-link" data-delete="{{ row.pk }}">remove</button>
+            <button type="button" class="btn-link" data-show="{{ row.pk }}" aria-label="Show the analysis of {{ row.original_name }}">show</button>
+            <button type="button" class="btn-link is-danger" data-delete="{{ row.pk }}" aria-label="Remove {{ row.original_name }} from history">remove</button>
           </div>
-          {% if row.file %}<audio controls preload="none" src="{{ row.file.url }}"></audio>{% endif %}
+          {% if row.file %}<audio controls preload="none" src="{{ row.file.url }}" aria-label="Play {{ row.original_name }}"></audio>{% endif %}
         </li>
       {% empty %}
         <li><p class="empty">Nothing classified yet. Upload a track to start.</p></li>

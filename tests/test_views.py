@@ -229,7 +229,6 @@ class TestContentHashCache:
         files = [p for p in Path(settings.MEDIA_ROOT).rglob("*") if p.is_file()]
         assert len(files) == 1
 
-
     def test_a_concurrent_duplicate_is_served_from_the_winner(
         self, client, db, monkeypatch, settings
     ):
@@ -307,7 +306,7 @@ class TestDelete:
         from pathlib import Path
 
         pk = post_file(client, wav_upload()).json()["id"]
-        response = client.delete(reverse("delete", args=[pk]))
+        response = client.delete(reverse("analysis", args=[pk]))
         assert response.status_code == 200 and response.json()["deleted"] is True
         assert not Analysis.objects.filter(pk=pk).exists()
         assert [p for p in Path(settings.MEDIA_ROOT).rglob("*") if p.is_file()] == []
@@ -315,11 +314,27 @@ class TestDelete:
     def test_deleting_something_already_gone_is_not_a_crash(self, client, db):
         # Was `Music.objects.get(id=...)` with no guard: a retried request hit
         # DoesNotExist and came back as a 500.
-        response = client.delete(reverse("delete", args=[9999]))
+        response = client.delete(reverse("analysis", args=[9999]))
         assert response.status_code == 200 and response.json()["deleted"] is False
 
-    def test_get_is_not_allowed(self, client, db):
-        assert client.get(reverse("delete", args=[1])).status_code == 405
+    def test_post_is_not_allowed(self, client, db):
+        assert client.post(reverse("analysis", args=[1])).status_code == 405
+
+
+class TestFetchOne:
+    def test_a_stored_analysis_comes_back_whole(self, client, db, stub_analysis):
+        posted = post_file(client, wav_upload(name="riff.wav")).json()
+        body = client.get(reverse("analysis", args=[posted["id"]])).json()
+        assert body["name"] == "riff.wav"
+        assert body["verdict"] == ANALYSIS["verdict"]
+        assert body["timeline"] == ANALYSIS["timeline"]
+        assert body["neighbours"] == ANALYSIS["neighbours"]
+        assert len(stub_analysis) == 1, "fetching must not re-run inference"
+
+    def test_a_missing_analysis_is_a_404_with_a_reason(self, client, db):
+        response = client.get(reverse("analysis", args=[9999]))
+        assert response.status_code == 404
+        assert "error" in response.json()
 
 
 class TestPages:

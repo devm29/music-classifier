@@ -88,10 +88,14 @@ def history(request: HttpRequest):
     )
 
 
-@require_http_methods(["DELETE"])
-def delete(request: HttpRequest, pk: int):
-    """Drop one analysis and its audio."""
+@require_http_methods(["GET", "DELETE"])
+def analysis(request: HttpRequest, pk: int):
+    """Fetch one stored analysis, or drop it together with its audio."""
     row = Analysis.objects.filter(pk=pk).first()
+    if request.method == "GET":
+        if row is None:
+            return _error("no such analysis", status=404)
+        return JsonResponse(row.as_dict())
     if row is None:
         # Deleting something already gone is the caller's desired end state.
         return JsonResponse({"deleted": False}, status=200)
