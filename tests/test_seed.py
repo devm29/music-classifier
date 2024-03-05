@@ -91,7 +91,7 @@ class TestSeedDemo:
             services_module.service, "analyse_file",
             lambda *a, **k: (_ for _ in ()).throw(ModelUnavailable("no model")),
         )
-        with pytest.raises(CommandError, match="classifier.train"):
+        with pytest.raises(CommandError, match=r"classifier\.train"):
             seed()
 
     def test_a_failed_seed_leaves_nothing_behind(self, monkeypatch, settings):

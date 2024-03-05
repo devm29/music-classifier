@@ -3,7 +3,7 @@
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 extend-exclude = ["project_venv", "web/migrations", "staticfiles"]
 
 [tool.ruff.lint]

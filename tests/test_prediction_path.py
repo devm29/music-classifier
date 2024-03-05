@@ -37,7 +37,7 @@ class TestLoading:
         monkeypatch.setattr(predict_module, "METADATA_PATH", tmp_path / "absent.json")
         predict_module.load_model.cache_clear()
         try:
-            with pytest.raises(ModelUnavailable, match="classifier.train"):
+            with pytest.raises(ModelUnavailable, match=r"classifier\.train"):
                 load_model()
         finally:
             predict_module.load_model.cache_clear()

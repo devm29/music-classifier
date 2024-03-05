@@ -24,3 +24,6 @@ README.md
 README.preview.html
 LICENSE.txt
 Procfile
+.env
+.env.*
+.python-version

@@ -8,25 +8,22 @@
 # produced by scikit-learn 0.18 that no currently installable version can
 # unpickle, so the app could not classify anything on a fresh install.
 #
-# Build tooling, the compiler toolchain and the dev requirements all stay in
-# this stage; the runtime image gets the virtualenv, the code and the artifact.
+# No compiler: numpy, scipy and scikit-learn ship manylinux wheels for this
+# Python, and pydub and python_speech_features are pure Python. The runtime
+# image gets the virtualenv, the code and the artifact, nothing else.
 # ---------------------------------------------------------------------------
-FROM python:3.11-slim AS builder
+FROM python:3.12-slim AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     VIRTUAL_ENV=/opt/venv \
     PATH="/opt/venv/bin:$PATH"
 
-RUN apt-get update \
- && apt-get install -y --no-install-recommends build-essential \
- && rm -rf /var/lib/apt/lists/*
-
 RUN python -m venv "$VIRTUAL_ENV"
 
 WORKDIR /build
 COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
+RUN pip install --only-binary=numpy,scipy,scikit-learn -r requirements.txt
 
 # Only what training and collectstatic need, so a template edit does not
 # invalidate the dependency layer above.
@@ -49,7 +46,7 @@ RUN python manage.py collectstatic --noinput
 # ---------------------------------------------------------------------------
 # Stage 2 — runtime.
 # ---------------------------------------------------------------------------
-FROM python:3.11-slim AS runtime
+FROM python:3.12-slim AS runtime
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \

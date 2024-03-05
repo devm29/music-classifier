@@ -128,7 +128,7 @@ class TestResampling:
         # `classifier.features`, not an assertion about it.
         reference = features_from_file(write_tone(tmp_path / "n.wav", 22050))
 
-        rate, data = wavfile.read(write_tone(tmp_path / "u.wav", 44100))
+        _rate, data = wavfile.read(write_tone(tmp_path / "u.wav", 44100))
         from classifier.features import AudioClip
 
         unresampled = EXTRACTOR.extract(
