@@ -17,10 +17,11 @@ docker compose down -v           # stop, and drop the uploads volume
 
 One command, no manual steps. The image trains the model at build time from
 `data/Xall.npy`, and the entrypoint migrates and seeds three analysed clips, so the
-first page is populated rather than an empty form.
+first page is populated rather than an empty form. Every setting has a default;
+copy `.env.example` to `.env` to override any of them.
 
-Locally, on Python 3.11 or 3.12 (newer has no wheels for the pinned numpy and
-scikit-learn):
+Locally, on Python 3.12 (pinned in `.python-version`; 3.13 removed the `audioop`
+module that pydub 0.25.1 still imports):
 
 ```bash
 python3.12 -m venv project_venv
@@ -35,34 +36,41 @@ Uploads accept `.wav`, `.mp3`, `.au`, `.flac`, `.ogg`, `.m4a`, `.mp4` and `.flv`
 to 40 MB. Only `.wav` is read directly; everything else goes through pydub, which
 shells out to **ffmpeg** — the image installs it, a local checkout needs it on `PATH`.
 
-**Container status**, from this repo's build log: *config parse verified* (`docker
-compose config`); *build verified* (`docker compose build` / `up -d --build` against
-the final application code — the last successful build came after the warm-up change
-in `web/apps.py`); *boot verified* — the container reached `healthy` in ~15 s,
-`GET /healthz/` returned `{"status":"ok","model_loaded":true,…}`, `/api/model/`
-reported `svm-rbf-calibrated` at 0.706, `/api/history/` returned the three seeded
-analyses, `GET /` returned 200. It was torn down with `docker compose down -v` and has
-**not** been re-run since; the only things that changed afterwards were `tests/` and
-this README, both excluded by `.dockerignore`.
+The local steps above were last run end to end on 2026-11-08 in a clean
+`python:3.12-slim` container, followed by the image's own serving path
+(`docker-entrypoint.sh`, then gunicorn with `DEBUG=0` over collected static files):
+training reported 0.706 ± 0.020, the three demo clips seeded, and every endpoint in
+[the API section](#the-json-api) answered as shown there.
 
 ## What it gives you back
 
 ![A classified track](docs/screenshots/classified.png)
 
-The label is *jazz* at 0.51 — but the nearest training tracks are `metal.00004`,
-`jazz.00063`, `rock.00055`. The neighbour panel is a falsifiable check on the headline,
-not decoration: if the neighbours disagree with the label, the label is what is wrong.
+The seeded `distorted-riff.wav`, reopened from the history with **show**. The label
+is *jazz* at 0.51 — but the nearest training tracks are `metal.00004`, `jazz.00063`,
+`rock.00055`. The neighbour panel is a falsifiable check on the headline, not
+decoration: if the neighbours disagree with the label, the label is what is wrong.
 
 ![An off-distribution verdict](docs/screenshots/off-distribution.png)
 
-The same page for a synthetic click grid. An SVM does not abstain, so the verdict is
-driven by how far the clip sits from the training set — 52.5 away, with under 0.2% of
-GTZAN's own track pairs that far apart — rather than letting 54% read as confidence.
+The same page for the seeded drum loop. An SVM does not abstain, so the verdict is
+driven by how far the clip sits from the training set — 65.1 away, further than any
+pair of GTZAN's own tracks, which is why every neighbour bar reads 0% — rather than
+letting 54% read as confidence.
 
 ![How it works](docs/screenshots/how-it-works.png)
 
 The in-app **How it works** page states the pipeline, the confidence bands and the
 limits, so nobody reads a number without its caveats.
+
+<p>
+  <img src="docs/screenshots/mobile-result.png" alt="The result panel on a phone" width="260">
+  <img src="docs/screenshots/error.png" alt="An unsupported file refused with the reason" width="520">
+</p>
+
+On a phone the history drops below the upload and the charts narrow their label
+columns. A refused upload says why — here a `.txt` file, rejected by extension
+before a byte of it is decoded.
 
 ## From upload to verdict
 
@@ -230,10 +238,81 @@ both indexed — there is no `.all()` anywhere, and a test would fail if one app
 SQLite is the right answer to that workload; the honest next bottleneck is CPU, so past
 a handful of concurrent uploads the answer is a task queue and more workers.
 
+## The JSON API
+
+The page is a client of these endpoints, and so can anything else. Captured from the
+sandbox run on 2026-11-08 against a synthesised 20-second, 44.1 kHz stereo clip
+(responses trimmed where marked):
+
+| Method and path | What it does |
+|---|---|
+| `POST /api/classify/` | multipart `file`; returns the full analysis, `cached: true` on a repeat |
+| `GET /api/analyses/<id>/` | one stored analysis, 404 if it has been pruned |
+| `DELETE /api/analyses/<id>/` | drop an analysis and its audio |
+| `GET /api/history/?limit=N` | newest first, capped at `HISTORY_LIMIT` |
+| `GET /api/model/` | what the served artifact says about itself |
+| `GET /healthz/` | 200 with the model loaded, 503 without |
+
+POSTs and DELETEs go through Django's CSRF check, so a script fetches the cookie
+first:
+
+```bash
+curl -s -c jar -o /dev/null localhost:8310/
+curl -s -b jar -H "X-CSRFToken: $(awk '/csrftoken/ {print $7}' jar)" \
+     -F file=@clip.wav localhost:8310/api/classify/
+```
+
+```json
+{
+  "ranked": [
+    {"genre": "jazz", "probability": 0.5437},
+    {"genre": "blues", "probability": 0.2162},
+    {"genre": "classical", "probability": 0.1249}
+  ],
+  "verdict": {"genre": "jazz", "probability": 0.5437, "margin": 0.3275, "band": "confident",
+              "reason": "54% on jazz, 33% clear of the runner-up."},
+  "duration_seconds": 20.0,
+  "sample_rate": 22050,
+  "extractor": "mfcc-stats-104",
+  "timeline": [
+    {"start": 0.0, "end": 10.0, "genre": "jazz", "probability": 0.5458, "runner_up": "blues"},
+    {"start": 5.0, "end": 15.0, "genre": "jazz", "probability": 0.5437, "runner_up": "blues"},
+    {"start": 10.0, "end": 20.0, "genre": "jazz", "probability": 0.5434, "runner_up": "blues"}
+  ],
+  "neighbours": [
+    {"track": "hiphop.00070", "genre": "hiphop", "distance": 13.593, "closer_than": 0.44},
+    {"track": "jazz.00000", "genre": "jazz", "distance": 13.776, "closer_than": 0.42}
+  ],
+  "elapsed_ms": 190,
+  "id": 4,
+  "name": "demo.wav",
+  "sha256": "cd72e194a78cf00f163ee060ada69a9e2b6337fa39add39312b5aef7e29017a9",
+  "size_bytes": 3528044,
+  "audio_url": "/media/audio/demo.wav",
+  "created_at": "2026-11-08T11:54:51.261932+00:00",
+  "cached": false
+}
+```
+
+Three of the five neighbours are trimmed. Note what the neighbours say about that
+"confident" jazz: the nearest track is hip-hop, and the clip is only closer than 44%
+of GTZAN's pairs — in range, but not near anything in particular.
+
+Errors are JSON with a reason, and the status code says whose fault it was:
+
+```
+POST /api/classify/  (notes.txt)        400  {"error": ".txt is not a supported audio format. Supported: .wav, .mp3, .au, .flac, .ogg, .m4a, .mp4, .flv."}
+POST /api/classify/  (no CSRF token)    403
+GET  /api/analyses/999/                 404  {"error": "no such analysis"}
+DELETE /api/analyses/999/               200  {"deleted": false}
+GET  /healthz/                          200  {"status": "ok", "model_loaded": true, "model": {...}}
+```
+
 ## Environment
 
 Every setting is read from the environment with a development default, so one image
-runs locally and behind a real host without a second settings file.
+runs locally and behind a real host without a second settings file. `.env.example`
+lists the ones Compose passes through, at their Compose defaults.
 
 | Variable | Default | What it does |
 |---|---|---|
@@ -251,7 +330,7 @@ too, in `config/settings.py`; `PORT` and `WEB_CONCURRENCY` belong to the `Procfi
 ## Tests
 
 ```bash
-./project_venv/bin/python -m pytest      # 198 passed in ~10 s
+./project_venv/bin/python -m pytest      # 204 passed in ~15 s
 ./project_venv/bin/ruff check .
 ```
 
@@ -284,6 +363,8 @@ run: feature matrices and models are synthesised from a fixed seed in
   a small CNN over mel-spectrograms would very likely do better, and is the honest next
   step rather than tuning these five classifiers further. The `FeatureExtractor` seam
   exists so that is a new class, not a rewrite.
+- **There are no accounts.** Anyone who can reach the page can upload, reopen and
+  remove history entries; the bounded history and the CSRF check are the only guards.
 - **One process, one machine.** No queue, no object storage, no horizontal scale, and
   `DEBUG` defaults to on locally. Set `DEBUG=0`, `SECRET_KEY`, `ALLOWED_HOSTS` and
   `SECURE_COOKIES=1` before exposing this to anything.
