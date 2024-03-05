@@ -1,0 +1,81 @@
+{% extends "web/base.html" %}
+{% block title %}How it works &middot; Music Genre Classifier{% endblock %}
+
+{% block content %}
+<section class="card prose" style="grid-column: 1 / -1;">
+  <h2>How it works</h2>
+
+  <h3>The pipeline</h3>
+  <p>
+    An upload is decoded (ffmpeg via pydub for anything that is not a WAV), averaged to
+    mono, truncated to the first {{ model.clip_seconds|default:30|floatformat:0 }} seconds
+    and resampled to {{ model.sample_rate|default:22050 }}&nbsp;Hz. Thirteen MFCCs are
+    computed over that clip and summarised as 13 means plus the 13 upper diagonals of
+    their 13&times;13 covariance &mdash; 104 numbers. A standardised, probability-calibrated
+    RBF support-vector machine scores them.
+  </p>
+
+  <h3>Why the resampling step matters</h3>
+  <p>
+    MFCCs are a function of the sample rate: the mel filterbank runs to
+    <code>rate / 2</code> and frames are <code>winlen &times; rate</code> samples long.
+    The training features were extracted from GTZAN at 22,050&nbsp;Hz. Handed the same
+    waveform at 44,100&nbsp;Hz &mdash; which is what essentially every MP3 is &mdash;
+    the feature vector lands about <strong>0.47 training standard deviations</strong>
+    from its own 22,050&nbsp;Hz version. Resampling first brings that to 0.07. Without
+    it, every real-world upload was scored off-distribution.
+  </p>
+
+  <h3>What the confidence band means</h3>
+  <p>
+    The served model is roughly 71% accurate out of sample, so the top guess is wrong
+    about one time in four. A result is called <strong>confident</strong> only when the
+    top probability clears 40% <em>and</em> beats the runner-up by 10 points; anything
+    else is reported as <strong>uncertain</strong>, with the reason. A narrow two-way
+    split is a tie, not an answer.
+  </p>
+
+  <h3>&hellip;and what <em>off-distribution</em> means</h3>
+  <p>
+    A support-vector machine has no idea what it has not seen. Handed audio unlike
+    anything in GTZAN &mdash; a synthesised tone, a podcast, near-silence &mdash; it does
+    not abstain: it returns its off-distribution default, which for this model is
+    <em>jazz at about 54%, blues second</em>, for essentially any such input. Rendered as
+    &ldquo;confident: jazz&rdquo;, that would be the most misleading thing this page
+    could say.
+  </p>
+  <p>
+    So the nearest-neighbour lookup gates the verdict. A real GTZAN track&rsquo;s closest
+    neighbour sits at a standardised distance of about 6.9 &mdash; 95% are under 12.8 &mdash;
+    and the widest 5% of pairs of <em>real</em> tracks are about 21 apart. When fewer than
+    5% of pairs are further apart than a clip&rsquo;s closest training track, the verdict
+    reads <strong>off-distribution</strong> and says the model is extrapolating.
+  </p>
+  <p>
+    It discriminates rather than just flagging anything synthetic. Of the three seeded
+    demo clips, the distorted riff lands 6.6 from <code>metal.00004</code> and is scored
+    normally; the arpeggio lands 24.2 and the drum loop 65.1, and both are flagged. A
+    sustained sine tone, for what it is worth, lands about 9.9 from a quiet classical
+    track and is <em>not</em> flagged.
+  </p>
+
+  <h3>What it cannot do</h3>
+  <ul>
+    <li>It knows ten genres and nothing else. Handed a podcast, it will confidently name one of them.</li>
+    <li>GTZAN has documented duplicates, mislabelled tracks and artist bleed. Accuracy on it is not accuracy on real music.</li>
+    <li>The per-window timeline uses 10-second windows against a model fitted on 30-second summaries, so its covariance estimates are noisier. Read it as a texture-change indicator, not a second opinion.</li>
+    <li>Nearest neighbours are named by GTZAN's filename convention recovered from the row index, not from stored titles.</li>
+  </ul>
+
+  {% if model %}
+    <h3>The served model</h3>
+    <p>
+      <code>{{ model.classifier }}</code> over <code>{{ model.extractor }}</code>
+      v{{ model.extractor_version }}, {{ model.genres|length }} genres,
+      {{ model.cv_accuracy_mean|floatformat:3 }} &plusmn; {{ model.cv_accuracy_std|floatformat:3 }}
+      accuracy (stratified 5-fold, out of sample), scikit-learn
+      {{ model.sklearn_version }}, trained {{ model.trained_at }}.
+    </p>
+  {% endif %}
+</section>
+{% endblock %}

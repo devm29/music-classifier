@@ -1,0 +1,23 @@
+# Modernised from the 2017 pins (Django 1.11, scikit-learn 0.18, numpy 1.12),
+# none of which install on a currently supported Python.
+#
+# The scikit-learn upgrade is not cosmetic: the models this project shipped
+# were pickled by 0.18 and cannot be loaded by anything after 0.22, because
+# `sklearn.svm.classes` was removed. Models are retrained and stored with
+# joblib now, with the library versions recorded alongside them.
+
+Django==5.1.4
+numpy==2.1.3
+scipy==1.14.1
+scikit-learn==1.5.2
+joblib==1.4.2
+
+# Audio decoding and feature extraction. pydub shells out to ffmpeg for
+# anything that is not a plain WAV; the Docker image installs it.
+pydub==0.25.1
+python_speech_features==0.6
+
+# Serving. gunicorn runs the app; whitenoise serves the hashed static files so
+# the container needs nothing in front of it.
+gunicorn==23.0.0
+whitenoise==6.8.2

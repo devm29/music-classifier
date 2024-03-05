@@ -1,0 +1,31 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Music Genre Classifier{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'web/app.css' %}">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>&#127925;</text></svg>">
+</head>
+<body>
+  <header class="masthead">
+    <div class="masthead-inner">
+      <h1 class="wordmark">Music Genre Classifier <small>MFCC features &rarr; calibrated SVM</small></h1>
+      {% if model %}
+        <span class="model-chip" title="Out-of-sample 5-fold accuracy of the served model">
+          {{ model.classifier }} &middot; {{ model.cv_accuracy_mean|floatformat:3 }} acc &middot; {{ model.genres|length }} genres
+        </span>
+      {% else %}
+        <span class="model-chip">no model loaded</span>
+      {% endif %}
+      <nav>
+        <a href="{% url 'index' %}">Classify</a>
+        <a href="{% url 'about' %}">How it works</a>
+        <a href="{% url 'healthz' %}">Health</a>
+      </nav>
+    </div>
+  </header>
+  <main class="page">{% block content %}{% endblock %}</main>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
