@@ -79,6 +79,15 @@ class TestQuery:
         for n in similar_tracks(synthetic_index[11], k=5):
             assert 0.0 <= n["closer_than"] <= 1.0
 
+    def test_a_vector_beyond_every_pair_is_closer_than_none_not_negative(
+        self, synthetic_index
+    ):
+        # Past the widest pair, searchsorted lands one beyond the 101 quantile
+        # points; unclamped, that read as "closer than -1%" in the panel.
+        far = synthetic_index.mean(axis=0) + 1000 * synthetic_index.std(axis=0)
+        for n in similar_tracks(far, k=5):
+            assert n["closer_than"] == 0.0
+
     def test_an_identical_vector_beats_almost_every_pair_in_the_dataset(
         self, synthetic_index
     ):

@@ -60,19 +60,19 @@ class NeighbourIndex:
         vector = (vector - self.mean) / self.scale
         distances = np.linalg.norm(self.z_matrix - vector, axis=1)
         order = np.argsort(distances)[:k]
+        # Index of the first quantile at or above each distance: 0..101 for
+        # 101 points, so a distance beyond the widest pair must be clamped or
+        # it reports a negative share.
+        ranks = np.minimum(np.searchsorted(self.distance_quantiles, distances[order]), 100)
         neighbours = []
-        for row in order:
+        for row, rank in zip(order, ranks, strict=True):
             name = track_id(int(row))
             neighbours.append(
                 Neighbour(
                     track=name,
                     genre=name.split(".")[0],
                     distance=round(float(distances[row]), 3),
-                    closer_than=round(
-                        1.0
-                        - np.searchsorted(self.distance_quantiles, distances[row]) / 100.0,
-                        2,
-                    ),
+                    closer_than=round(1.0 - rank / 100.0, 2),
                 )
             )
         return neighbours
