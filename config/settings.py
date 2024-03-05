@@ -130,10 +130,23 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 41 * 1024 * 1024
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+def _not_nfft_truncation(record) -> bool:
+    """
+    Drop python_speech_features' "frame length (551) is greater than FFT
+    size (512)" warning. It fires once per MFCC call, about twenty times per
+    analysis, and the truncation it describes is part of the 2017 feature
+    definition that `Xall.npy` was built with, so it is not something to fix.
+    """
+    return "is greater than FFT size" not in record.getMessage()
+
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "filters": {
+        "nfft": {"()": "django.utils.log.CallbackFilter", "callback": _not_nfft_truncation},
+    },
+    "handlers": {"console": {"class": "logging.StreamHandler", "filters": ["nfft"]}},
     "root": {"handlers": ["console"], "level": os.environ.get("LOG_LEVEL", "INFO")},
 }
 
