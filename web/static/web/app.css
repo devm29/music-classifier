@@ -244,6 +244,7 @@ a { color: var(--series-1); }
 }
 
 .banner[hidden] { display: none; }
+.card .banner { margin-bottom: 16px; }
 .banner .icon { flex: none; font-weight: 700; }
 .banner.is-error { border-color: var(--critical); }
 .banner.is-error .icon { color: var(--critical); }
