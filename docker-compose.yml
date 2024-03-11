@@ -1,0 +1,46 @@
+# One command, no manual steps:
+#
+#   docker compose up --build   ->   http://localhost:8310
+#
+# The image trains the model at build time and the entrypoint migrates and
+# seeds the history, so the first page is populated rather than empty.
+#
+# SQLite is the right call here: the only two queries this app makes are a
+# unique-key lookup by content hash and "the most recent N". Adding Postgres
+# would be ceremony without a benefit.
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: music-classifier:local
+    container_name: music_classifier
+    environment:
+      SECRET_KEY: ${SECRET_KEY:-dev-only-insecure-key-change-me}
+      # DEBUG=0 so the container exercises the real serving path: gunicorn
+      # plus WhiteNoise over the collected, hashed static files.
+      DEBUG: ${DEBUG:-0}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0,web}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://localhost:8310}
+      # The demo is served over plain HTTP on localhost. Secure-only cookies
+      # would simply never be stored by the browser, and every POST would come
+      # back 403. Set this to 1 behind TLS.
+      SECURE_COOKIES: ${SECURE_COOKIES:-0}
+      HISTORY_LIMIT: ${HISTORY_LIMIT:-20}
+    ports:
+      - "8310:8000"
+    volumes:
+      # Uploads and the SQLite file, kept out of the image so a rebuild does
+      # not lose them. `docker compose down -v` removes them.
+      - music_data:/app/var
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz/', timeout=4)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+
+volumes:
+  music_data:
