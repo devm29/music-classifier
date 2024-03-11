@@ -1,0 +1,107 @@
+{% extends "web/base.html" %}
+{% load static %}
+
+{% block content %}
+<div>
+  <section class="card">
+    <h2>Classify a track</h2>
+    <p class="subhead">
+      The first {{ model.clip_seconds|default:30|floatformat:0 }} seconds are resampled to
+      {{ model.sample_rate|default:22050 }}&nbsp;Hz mono, summarised as 104 MFCC statistics and
+      scored. Nothing leaves this machine.
+    </p>
+
+    <div class="banner is-error" id="error" hidden>
+      <span class="icon" aria-hidden="true">!</span><span id="error-text"></span>
+    </div>
+
+    {% if not model %}
+      <div class="banner" style="margin-bottom:16px">
+        <span class="icon" aria-hidden="true">i</span>
+        <span>No model artifact is present. Run <code>python -m classifier.train</code>, then reload.</span>
+      </div>
+    {% endif %}
+
+    <form id="upload-form" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="dropzone" id="dropzone" role="button" tabindex="0"
+           aria-label="Choose an audio file or drop one here">
+        <p class="dropzone-title">Drop an audio file here</p>
+        <p class="dropzone-hint">or click to choose &middot; {{ accepted }} &middot; up to {{ max_mb }}&nbsp;MB</p>
+        <input type="file" id="file-input" name="file" accept="audio/*" class="visually-hidden">
+      </div>
+      <div class="progress" id="progress" hidden><span></span></div>
+    </form>
+  </section>
+
+  <section class="card" id="result" hidden>
+    <h2>Result</h2>
+
+    <div class="verdict">
+      <div class="verdict-figure">
+        <p class="verdict-genre" id="v-genre">&mdash;</p>
+        <p class="verdict-prob" id="v-prob"></p>
+      </div>
+      <div>
+        <span class="chip" id="v-chip"><span class="dot" aria-hidden="true"></span><span id="v-band"></span></span>
+        <p class="verdict-reason" id="v-reason"></p>
+      </div>
+    </div>
+
+    <div class="meta-row" id="v-meta"></div>
+
+    <div class="chart">
+      <p class="chart-title">Genre probabilities</p>
+      <p class="chart-note">Calibrated, so they are comparable across tracks. Every bar is the same colour on purpose &mdash; length is the measurement.</p>
+      <div class="bars" id="bars"></div>
+    </div>
+
+    <div class="chart" id="timeline-block">
+      <p class="chart-title">Genre across the clip</p>
+      <p class="chart-note">Ten-second windows, five-second hop. Shade is the window&rsquo;s confidence; the label under each is its top genre.</p>
+      <div class="timeline" id="timeline"></div>
+      <div class="tl-axis"><span>0:00</span><span id="tl-end"></span></div>
+      <div class="scale-legend">
+        <span>less certain</span>
+        <span class="scale-swatches" aria-hidden="true">
+          <i style="background:var(--seq-1)"></i><i style="background:var(--seq-2)"></i><i style="background:var(--seq-3)"></i><i style="background:var(--seq-4)"></i><i style="background:var(--seq-5)"></i>
+        </span>
+        <span>more certain</span>
+      </div>
+    </div>
+
+    <div class="chart">
+      <p class="chart-title">Closest tracks in the training set</p>
+      <p class="chart-note">Nearest GTZAN neighbours in standardised feature space &mdash; a falsifiable check on the label above. The bar is how much of the dataset this upload is closer to than.</p>
+      <ul class="nb-list" id="neighbours"></ul>
+    </div>
+  </section>
+</div>
+
+<aside>
+  <section class="card">
+    <h2>Recent</h2>
+    <p class="subhead">The last {{ history_limit }} analyses are kept; older ones are pruned with their audio. A repeat upload is served from the content-hash cache.</p>
+    <ul class="history" id="history">
+      {% for row in recent %}
+        <li data-id="{{ row.pk }}">
+          <div class="h-head">
+            <span class="h-name" title="{{ row.original_name }}">{{ row.original_name }}</span>
+            <span class="h-genre">{{ row.top_genre }}</span>
+          </div>
+          <div class="h-sub">
+            <span class="h-bar"><i style="width: {% widthratio row.top_probability 1 100 %}%"></i></span>
+            <span class="nb-value">{{ row.top_probability|floatformat:2 }}</span>
+            <button class="btn-link" data-delete="{{ row.pk }}">remove</button>
+          </div>
+          {% if row.file %}<audio controls preload="none" src="{{ row.file.url }}"></audio>{% endif %}
+        </li>
+      {% empty %}
+        <li><p class="empty">Nothing classified yet. Upload a track to start.</p></li>
+      {% endfor %}
+    </ul>
+  </section>
+</aside>
+{% endblock %}
+
+{% block scripts %}<script src="{% static 'web/app.js' %}" defer></script>{% endblock %}
